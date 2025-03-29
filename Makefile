@@ -1,9 +1,9 @@
 # specify the wireless interfaces that are capable of monitor mode
 W1   := wlx503eaa3d660d
 W2   := wlx5ca6e6a31052
+CHAN := 1
 
-
-
+# great set of commands: https://www.itdojo.com/courses-linux/linuxwifi/
 
 SEND = send
 RECV = recv
@@ -51,3 +51,11 @@ git:
 	git add *
 	git commit -am"updated"
 	git push origin main
+
+info:
+	iw dev
+
+chan:
+	sudo iw dev ${W1} set channel ${CHAN}
+	sudo iw dev ${W2} set channel ${CHAN}
+	sudo iw dev
