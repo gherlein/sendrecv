@@ -9,11 +9,24 @@
 #include <linux/if_packet.h>
 #include <net/if.h>
 #include <netinet/ether.h>
+#include <stdint.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 
-#define INTERFACE "wlx5ca6e6a31052"
 #define BUFSIZE 65536
+const size_t MEGABYTE = 1024 * 1024;
+
+struct arp_header {
+  uint16_t htype;        // Hardware type (1 for Ethernet)
+  uint16_t ptype;        // Protocol type (0x0800 for IPv4)
+  uint8_t hlen;          // Hardware address length (6 for MAC)
+  uint8_t plen;          // Protocol address length (4 for IPv4)
+  uint16_t opcode;       // Operation (1 for request, 2 for reply)
+  uint8_t sender_mac[6]; // Sender MAC address
+  uint8_t sender_ip[4];  // Sender IP address
+  uint8_t target_mac[6]; // Target MAC address
+  uint8_t target_ip[4];  // Target IP address
+} __attribute__((packed));
 
 void hexdump(const unsigned char *data, int len) {
   for (int i = 0; i < len; i++) {
@@ -26,13 +39,21 @@ void hexdump(const unsigned char *data, int len) {
   printf("--------\n");
 }
 
-int main() {
+int main(int argc, char *argv[]) {
   int sock;
   struct ifreq ifr;
   struct sockaddr_ll sll;
   unsigned char buffer[BUFSIZE];
+  uint32_t counter = 0;
+  float bytes_recv = 0;
 
-  // Create raw socket
+  if (argc < 2) {
+    printf("useage: %s <interface>\n", argv[0]);
+    return -1;
+  }
+  char *interface_str = argv[1];
+  printf("opening %s...\n", interface_str); // Create raw socket
+
   sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
   if (sock < 0) {
     perror("Socket");
@@ -41,7 +62,8 @@ int main() {
 
   // Get interface index
   memset(&ifr, 0, sizeof(ifr));
-  strncpy(ifr.ifr_name, INTERFACE, IFNAMSIZ - 1);
+  // strncpy(ifr.ifr_name, interface_str, IFNAMSIZ - 1);
+  memcpy(ifr.ifr_name, interface_str, IFNAMSIZ - 1);
   if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0) {
     perror("ioctl(SIOCGIFINDEX)");
     close(sock);
@@ -60,7 +82,7 @@ int main() {
     exit(1);
   }
 
-  printf("Listening on interface %s...\n", INTERFACE);
+  printf("Listening on interface %s...\n", interface_str);
 
   while (1) {
     ssize_t numbytes = recvfrom(sock, buffer, sizeof(buffer), 0, NULL, NULL);
@@ -68,9 +90,15 @@ int main() {
       perror("recvfrom");
       break;
     }
-
-    printf("Received %zd bytes:\n", numbytes);
-    hexdump(buffer, numbytes);
+    if (buffer[59] == 0x08 && buffer[60] == 0x06) {
+      // struct arp_header *arp = (struct arp_header *)(buffer + 61);
+      counter++;
+      bytes_recv += numbytes;
+      printf("counter: %u - KBytes: %f\r", counter, bytes_recv / 1024);
+      // printf("Sender IP: %d.%d.%d.%d\n", arp->sender_ip[0],
+      // arp->sender_ip[1],
+      //       arp->sender_ip[2], arp->sender_ip[3]);
+    }
   }
 
   close(sock);
