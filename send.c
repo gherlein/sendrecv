@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #define SEND_IP 1
+
 // Minimal Radiotap + 802.11 header
 // clang-format off
 unsigned char header[] = {
@@ -41,12 +42,36 @@ unsigned char header[] = {
 // EtherType: ARP is 0x0806, IPv4 is 0x0800
 #ifdef SEND_IP
 0x08, 0x00,
-0x04<<4,
 #endif
 //0x08, 0x06,
 //0xFF,0x01,
 };
-// clang-format on
+
+uint8_t ipv4header[] = {
+       0x45, 0x00, 0x00, 0x3c, 0x1c, 0x46, 0x40, 0x00,
+       0x40, 0x06, 0xb1, 0xe6, 0xc0, 0xa8, 0x01, 0x02,
+       0xc0, 0xa8, 0x01, 0x01
+   };
+
+   uint8_t udp_packet[] = {
+       // IPv4 Header (20 bytes)
+       0x45,       // Version (4) + IHL (5)
+       0x00,       // Type of Service
+       0x00, 0x1C, // Total Length = 28 bytes
+       0x00, 0x01, // Identification
+       0x00, 0x00, // Flags + Fragment Offset
+       0x40,       // TTL = 64
+       0x11,       // Protocol = 17 (UDP)
+       0x00, 0x00, // Header Checksum (we'll set this to 0 for simplicity)
+       0xFF, 0xFF, 0xFF, 0xFF, // Source IP = 255.255.255.255 (broadcast)
+       0xFF, 0xFF, 0xFF, 0xFF, // Dest IP   = 255.255.255.255 (broadcast)
+
+       // UDP Header (8 bytes)
+       0x13, 0x89, // Source Port = 5001
+       0x13, 0x8A, // Destination Port = 5002
+       0x00, 0x08, // Length = 8 (header only, no data)
+       0x00, 0x00  // Checksum (set to 0 if not calculated)
+   }; // clang-format on
 
 unsigned char payload[1400];
 
@@ -91,11 +116,13 @@ int main(int argc, char *argv[]) {
 #ifdef SEND_IP
   memset(packet, 0x00, sizeof(packet));
   memcpy(packet, header, sizeof(header));
+  memcpy(packet + sizeof(header), udp_packet, sizeof(udp_packet));
   for (int x = 0; x < sizeof(payload); x++) {
     // payload[x] = (uint8_t)(x & 0xFF);
     payload[x] = (0xFF);
   }
-  memcpy(packet + sizeof(header), payload, sizeof(payload));
+  memcpy(packet + sizeof(header) + sizeof(udp_packet), payload,
+         sizeof(payload));
 #endif
   // #define SEND_ARP
 #ifdef SEND_ARP
