@@ -16,6 +16,8 @@
 #define BUFSIZE 65536
 const size_t MEGABYTE = 1024 * 1024;
 
+#define SEND_IP 1
+
 struct arp_header {
   uint16_t htype;        // Hardware type (1 for Ethernet)
   uint16_t ptype;        // Protocol type (0x0800 for IPv4)
@@ -90,6 +92,7 @@ int main(int argc, char *argv[]) {
       perror("recvfrom");
       break;
     }
+#ifdef SEND_IP
     if (buffer[59] == 0x08 && buffer[60] == 0x06) {
       // struct arp_header *arp = (struct arp_header *)(buffer + 61);
       counter++;
@@ -99,6 +102,27 @@ int main(int argc, char *argv[]) {
       // arp->sender_ip[1],
       //       arp->sender_ip[2], arp->sender_ip[3]);
     }
+#endif
+#ifdef SEND_ARP
+    if (buffer[59] == 0x08 && buffer[60] == 0x06) {
+      // struct arp_header *arp = (struct arp_header *)(buffer + 61);
+      counter++;
+      bytes_recv += numbytes;
+      printf("counter: %u - KBytes: %f\r", counter, bytes_recv / 1024);
+      // printf("Sender IP: %d.%d.%d.%d\n", arp->sender_ip[0],
+      // arp->sender_ip[1],
+      //       arp->sender_ip[2], arp->sender_ip[3]);
+    }
+#endif
+#define SEND_RAW 1
+#ifdef SEND_RAW
+    if (buffer[0] == 0xFF && buffer[1] == 0xFE && buffer[2] == 0xFF &&
+        buffer[3] == 0xFE) {
+      counter++;
+      bytes_recv += numbytes;
+      printf("counter: %u - KBytes: %f\r", counter, bytes_recv / 1024);
+    }
+#endif
   }
 
   close(sock);

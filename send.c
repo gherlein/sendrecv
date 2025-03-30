@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#define SEND_IP 1
 // Minimal Radiotap + 802.11 header
 // clang-format off
 unsigned char header[] = {
@@ -37,8 +38,12 @@ unsigned char header[] = {
     // LLC + SNAP Header (8 bytes)
     0xaa,0xaa,0x03,0x00,0x00,0x00,
 
-// EtherType: ARP is 0x0806
-  0x08, 0x06,
+// EtherType: ARP is 0x0806, IPv4 is 0x0800
+#ifdef SEND_IP
+0x08, 0x00,
+0x04<<4,
+#endif
+//0x08, 0x06,
 //0xFF,0x01,
 };
 // clang-format on
@@ -82,16 +87,37 @@ int main(int argc, char *argv[]) {
   sa.sll_protocol = htons(ETH_P_ALL);
 
   unsigned char packet[1500];
+
+#ifdef SEND_IP
+  memset(packet, 0x00, sizeof(packet));
+  memcpy(packet, header, sizeof(header));
+  for (int x = 0; x < sizeof(payload); x++) {
+    // payload[x] = (uint8_t)(x & 0xFF);
+    payload[x] = (0xFF);
+  }
+  memcpy(packet + sizeof(header), payload, sizeof(payload));
+#endif
+  // #define SEND_ARP
+#ifdef SEND_ARP
   memset(packet, 0x00, sizeof(packet));
   memcpy(packet, header, sizeof(header));
   for (int x = 0; x < sizeof(payload); x++) {
     payload[x] = (uint8_t)(x & 0xFF);
   }
   memcpy(packet + sizeof(header), payload, sizeof(payload));
-
+#endif
+// #define RAW 1
+#ifdef SEND_RAW
+  memset(packet, 0x00, sizeof(packet));
+  packet[0] = 0xff;
+  packet[1] = 0xfe;
+  packet[2] = 0xff;
+  packet[3] = 0xfe;
+  packet[4] = 0xff;
+#endif
   while (1) {
     // send 10 frames
-    for (int x = 0; x < 10000; x++) {
+    for (int x = 0; x < 1000; x++) {
       // Send the packet
       ssize_t result = sendto(sock, packet, sizeof(packet), 0,
                               (struct sockaddr *)&sa, sizeof(sa));

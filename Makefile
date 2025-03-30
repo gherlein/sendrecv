@@ -1,7 +1,7 @@
 # specify the wireless interfaces that are capable of monitor mode
 W1   := wlx503eaa3d660d
 W2   := wlx5ca6e6a31052
-CHAN := 1
+CHAN := 6
 
 # great set of commands: https://www.itdojo.com/courses-linux/linuxwifi/
 
@@ -34,7 +34,7 @@ start:
 	iw dev
 
 stop:
-	airmon-ng stop ${W1}
+	sudo airmon-ng stop ${W1}
 	sudo airmon-ng stop ${W2}
 
 perms:
